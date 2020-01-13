@@ -567,3 +567,59 @@ class QRGeneratorView(View):
         resp = HttpResponse(content_type=content_type)
         img.save(resp)
         return resp
+
+
+@class_view_decorator(never_cache)
+@class_view_decorator(otp_required)
+class YubikeySetupView(FormView):
+    """
+    View for adding new yubikey.
+
+    """
+    form_class = YubiKeyDeviceForm
+    success_url = 'two_factor:profile'
+    template_name = 'two_factor/core/yubikey_register.html'
+
+    def get_device(self):
+        kwargs = {
+            'public_id': '',
+            'user': self.request.user
+        }
+        try:
+            kwargs['service'] = ValidationService.objects.get(name='default')
+        except ValidationService.DoesNotExist:
+            raise KeyError("No ValidationService found with name 'default'")
+        except ValidationService.MultipleObjectsReturned:
+            raise KeyError("Multiple ValidationService found with name 'default'")
+        return RemoteYubikeyDevice(**kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super(YubikeySetupView, self).get_form_kwargs()
+        kwargs.update({
+            'device': self.get_device(),
+        })
+        return kwargs
+
+    def form_valid(self, form):
+        """
+        Set name as public_id and save yubikey device
+        """
+        device = form.device
+        device.name = device.public_id
+        device.save()
+        return redirect(self.success_url)
+
+
+@class_view_decorator(never_cache)
+@class_view_decorator(otp_required)
+class YubikeyDeleteView(DeleteView):
+    """
+    View for removing additional yubikey.
+    """
+    success_url = 'two_factor:profile'
+
+    def get_queryset(self):
+        return self.request.user.remoteyubikeydevice_set.exclude(name='default')
+
+    def get_success_url(self):
+        return resolve_url(self.success_url)

@@ -1,0 +1,20 @@
+{% extends "two_factor/_base_focus.html" %}
+{% load i18n %}
+
+{% block content %}
+  <h1>{% block title %}{% trans "Add Yubikey" %}{% endblock %}</h1>
+
+  <p>{% blocktrans %}To identify and verify your YubiKey, please insert a
+      token in the field below. Your YubiKey will be linked to your
+      account.{% endblocktrans %}</p>
+
+  <form method="post" action=".">
+    {% csrf_token %}
+    {{ form }}
+    <div style="margin-left: -9999px"><input type="submit" value=""/></div>
+    <a href="{% url 'two_factor:profile'%}"
+       class="pull-right btn btn-link">{% trans "Back to Account Security" %}</a>
+    <button class="btn btn-primary" type="submit">{% trans "Add Key" %}</button>
+  </form>
+
+{% endblock %}

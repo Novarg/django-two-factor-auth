@@ -7,7 +7,7 @@ from django_otp import devices_for_user, user_has_device
 
 from ..forms import DisableForm
 from ..models import get_available_phone_methods
-from ..utils import backup_phones, default_device
+from ..utils import backup_phones, default_device, yubikey_devices
 from .utils import class_view_decorator
 
 
@@ -30,6 +30,7 @@ class ProfileView(TemplateView):
             backup_tokens = 0
 
         return {
+            'user_yubikeys': yubikey_devices(self.request.user),
             'default_device': default_device(self.request.user),
             'default_device_type': default_device(self.request.user).__class__.__name__,
             'backup_phones': backup_phones(self.request.user),

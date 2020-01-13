@@ -9,6 +9,10 @@ except ImportError:
     from urllib import quote, urlencode
 
 
+def yubikey_devices(user):
+    return user.remoteyubikeydevice_set.all()
+
+
 def default_device(user):
     if not user or user.is_anonymous:
         return

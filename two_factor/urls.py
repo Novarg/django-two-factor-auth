@@ -2,7 +2,8 @@ from django.conf.urls import url
 
 from two_factor.views import (
     BackupTokensView, DisableView, LoginView, PhoneDeleteView, PhoneSetupView,
-    ProfileView, QRGeneratorView, SetupCompleteView, SetupView,
+    ProfileView, QRGeneratorView, SetupCompleteView, SetupView, YubikeySetupView,
+    YubikeyDeleteView
 )
 
 core = [
@@ -40,6 +41,16 @@ core = [
         regex=r'^account/two_factor/backup/phone/unregister/(?P<pk>\d+)/$',
         view=PhoneDeleteView.as_view(),
         name='phone_delete',
+    ),
+    url(
+        regex=r'^account/two_factor/yubikey/register/$',
+        view=YubikeySetupView.as_view(),
+        name='yubikey_create',
+    ),
+    url(
+        regex=r'^account/two_factor/yubikey/unregister/(?P<pk>\d+)/$',
+        view=YubikeyDeleteView.as_view(),
+        name='yubikey_delete',
     ),
 ]
 
