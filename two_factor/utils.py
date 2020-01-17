@@ -1,5 +1,6 @@
 from django.conf import settings
 from django_otp import devices_for_user
+from django_otp.plugins.otp_totp.models import TOTPDevice
 
 from two_factor.models import PhoneDevice
 
@@ -9,7 +10,15 @@ except ImportError:
     from urllib import quote, urlencode
 
 
+def totp_devices(user):
+    if not user or user.is_anonymous:
+        return
+    return filter(lambda x: isinstance(x, TOTPDevice), devices_for_user(user))
+
+
 def yubikey_devices(user):
+    if not user or user.is_anonymous:
+        return
     return user.remoteyubikeydevice_set.all()
 
 

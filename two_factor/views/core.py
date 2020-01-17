@@ -27,12 +27,12 @@ from django_otp.util import random_hex
 
 from two_factor import signals
 from two_factor.models import get_available_methods
-from two_factor.utils import totp_digits
+from two_factor.utils import totp_digits, yubikey_devices, totp_devices
 
 from ..forms import (
     AuthenticationTokenForm, BackupTokenForm, DeviceValidationForm, MethodForm,
     PhoneNumberForm, PhoneNumberMethodForm, TOTPDeviceForm, YubiKeyDeviceForm,
-)
+    YubikeyAuthenticationForm)
 from ..models import PhoneDevice, get_available_phone_methods
 from ..utils import backup_phones, default_device, get_otpauth_url
 from .utils import IdempotentSessionWizardView, class_view_decorator
@@ -63,22 +63,30 @@ class LoginView(IdempotentSessionWizardView):
     form_list = (
         ('auth', AuthenticationForm),
         ('token', AuthenticationTokenForm),
+        ('yubikey', YubikeyAuthenticationForm),
         ('backup', BackupTokenForm),
     )
     idempotent_dict = {
         'token': False,
         'backup': False,
+        'yubikey': False,
     }
 
     def has_token_step(self):
-        return default_device(self.get_user())
+        return totp_devices(self.get_user())
 
     def has_backup_step(self):
         return default_device(self.get_user()) and \
-            'token' not in self.storage.validated_step_data
+               ('token' not in self.storage.validated_step_data and
+                'yubikey' not in self.storage.validated_step_data)
+
+    def has_yubikey_step(self):
+        return yubikey_devices(self.get_user()) and \
+               ('token' not in self.storage.validated_step_data)
 
     condition_dict = {
         'token': has_token_step,
+        'yubikey': has_yubikey_step,
         'backup': has_backup_step,
     }
     redirect_field_name = REDIRECT_FIELD_NAME
@@ -127,12 +135,18 @@ class LoginView(IdempotentSessionWizardView):
             return {
                 'request': self.request
             }
-        if step in ('token', 'backup'):
+        if step in ('token', 'backup', 'yubikey'):
             return {
                 'user': self.get_user(),
                 'initial_device': self.get_device(step),
             }
         return {}
+
+    def get_form_initial(self, step):
+        initial = super(LoginView, self).get_form_initial(step)
+        if step in ('token', 'yubikey'):
+            initial['otp_device'] = self.get_device(step).persistent_id
+        return initial
 
     def get_device(self, step=None):
         """
@@ -150,6 +164,10 @@ class LoginView(IdempotentSessionWizardView):
                     self.device_cache = self.get_user().staticdevice_set.get(name='backup')
                 except StaticDevice.DoesNotExist:
                     pass
+            if step == 'yubikey':
+                for ykey in yubikey_devices(self.get_user()):
+                    self.device_cache = ykey
+                    break
             if not self.device_cache:
                 self.device_cache = default_device(self.get_user())
         return self.device_cache
@@ -159,7 +177,7 @@ class LoginView(IdempotentSessionWizardView):
         If the user selected a device, ask the device to generate a challenge;
         either making a phone call or sending a text message.
         """
-        if self.steps.current == 'token':
+        if self.steps.current in ['token', 'yubikey']:
             self.get_device().generate_challenge()
         return super(LoginView, self).render(form, **kwargs)
 
@@ -179,7 +197,8 @@ class LoginView(IdempotentSessionWizardView):
         Adds user's default and backup OTP devices to the context.
         """
         context = super(LoginView, self).get_context_data(form, **kwargs)
-        if self.steps.current == 'token':
+        if self.steps.current in ['token', 'yubikey']:
+            context['has_yubikey'] = yubikey_devices(self.get_user())
             context['device'] = self.get_device()
             context['other_devices'] = [
                 phone for phone in backup_phones(self.get_user())

@@ -21,6 +21,8 @@
     <p>{% blocktrans %}Use this form for entering backup tokens for logging in.
       These tokens have been generated for you to print and keep safe. Please
       enter one of these backup tokens to login to your account.{% endblocktrans %}</p>
+  {% elif wizard.steps.current == 'yubikey' %}
+    <p>{% blocktrans %}Hold your fingertip on your youbikey for one second.{% endblocktrans %}</p>
   {% endif %}
 
   <form action="" method="post">{% csrf_token %}
@@ -28,6 +30,13 @@
 
     {# hidden submit button to enable [enter] key #}
     <div style="margin-left: -9999px"><input type="submit" value=""/></div>
+
+    {% if wizard.steps.current == 'token' and has_yubikey %}
+      <p>
+        <button name="wizard_goto_step" type="submit" value="yubikey"
+                class="btn btn-default btn-block">{% trans "Login with Yubikey" %}</button>
+      </p>
+    {% endif %}
 
     {% if other_devices %}
       <p>{% trans "Or, alternatively, use one of your backup phones:" %}</p>

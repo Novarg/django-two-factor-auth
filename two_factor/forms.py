@@ -141,8 +141,9 @@ class DisableForm(forms.Form):
 class AuthenticationTokenForm(OTPAuthenticationFormMixin, Form):
     otp_token = forms.IntegerField(label=_("Token"), min_value=1,
                                    max_value=int('9' * totp_digits()))
-
     otp_token.widget.attrs.update({'autofocus': 'autofocus'})
+
+    otp_device = forms.CharField(required=False, widget=forms.HiddenInput())
 
     # Our authentication form has an additional submit button to go to the
     # backup token form. When the `required` attribute is set on an input
@@ -162,16 +163,15 @@ class AuthenticationTokenForm(OTPAuthenticationFormMixin, Form):
         super(AuthenticationTokenForm, self).__init__(**kwargs)
         self.user = user
 
-        # YubiKey generates a OTP of 44 characters (not digits). So if the
-        # user's primary device is a YubiKey, replace the otp_token
-        # IntegerField with a CharField.
-        if RemoteYubikeyDevice and YubikeyDevice and \
-                isinstance(initial_device, (RemoteYubikeyDevice, YubikeyDevice)):
-            self.fields['otp_token'] = forms.CharField(label=_('YubiKey'), widget=forms.PasswordInput())
-
     def clean(self):
         self.clean_otp(self.user)
         return self.cleaned_data
+
+
+class YubikeyAuthenticationForm(AuthenticationTokenForm):
+    otp_token = forms.CharField(label=_('YubiKey'), widget=forms.PasswordInput())
+    otp_token.widget.attrs.update({'autofocus': 'autofocus'})
+    otp_token.widget.attrs.update({'autocomplete': 'off'})
 
 
 class BackupTokenForm(AuthenticationTokenForm):
